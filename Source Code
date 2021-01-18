@@ -1,0 +1,131 @@
+###Import datasets###
+library(tidyverse)
+
+train <- read_csv("Titanic Train.csv")
+test <- read_csv("Titanic Test.csv")
+df_combine <- rbind(train[-2],test)
+
+view(train)
+summary(train)
+
+
+
+
+
+###Preprocessing###
+#Sort the missing data in the variables
+colSums(is.na(train))
+#Age, Cabin and Embarked have missing data. We can impute in Age and
+#Embarked but not Cabin because 77% of its data is missing. 
+
+
+#Find which variables have a correlation with Age
+cor(train[sapply(train, is.numeric)], use="complete.obs")
+#Age has a good correlation with Pclass and SibSp. Pclass and Sibsp
+#will be used to impute the missing data in Age. 
+
+#New table with Pclass and SibSp median Age values
+x <- train %>% group_by(Pclass, SibSp, Parch) %>% summarise(Median=median(Age,na.rm=TRUE))
+
+#Impute the missing values with the median
+z <- c()
+na_age <- train[is.na(train$Age),]
+#for loop the train rows with NA age
+for (row in 1:nrow(na_age)){
+  #filter x table with Pclass and Parch values from NA row
+  y <- x %>% filter(Pclass==na_age[row,][[3]], SibSp==na_age[row,][[7]],
+                    Parch==na_age[row,][[8]]) %>% select(Median)
+  #save Median value in a vector
+  z <- c(z,y$Median)
+}
+#Replace NA with vector Median value
+train$Age[is.na(train$Age)] <- z
+
+train[is.na(train$Age),] #Check if Age still contains missing data
+#All the passengers here have SibSp==8.
+
+#Impute SibSp==8 NA values with Pclass 3 median Age  
+pclass3 <- train %>% filter(Pclass==3)
+train$Age[is.na(train$Age)] <- median(pclass3$Age, na.rm=TRUE)
+train[is.na(train$Age),] #Check if Age still contains missing data
+
+
+#Sort Embarked missing data
+train[is.na(train$Embarked),]
+#Impute missing data with the mode Embarked
+table(train$Embarked)
+#"S" is the most occurring element.
+train$Embarked[is.na(train$Embarked)] <- "S"
+train[is.na(train$Embarked),] #Check if Embarked still contains missing data
+
+
+#Drop the Cabin variable because 77% of its data is missing
+train$Cabin <- NULL
+
+
+view(train)
+#Remove PassengerId because it is not needed.
+train$PassengerId <- NULL
+unique(train$Ticket)
+#Also remove Ticket because there it contains 681 unique values.
+train$Ticket <- NULL
+
+view(train)
+
+
+#Create a Title variable by feature engineering the Name variable.
+title <- strsplit(train$Name, split=" ")
+title_sep <- train %>% separate(Name, c("A","B"), sep=", ")
+title_sep <- title_sep %>% separate(B, c("Title","A"), sep=". ")
+train$Title <- title_sep$Title
+train$Name <- NULL #Remove the Name variable
+#Group the other titles together
+table(train$Title)
+other_list = c("Capt","Col","Don","Dr","Jonkheer","Lady","Major",
+              "Mlle","Mme","Ms","Rev","Sir","th")
+for(i in 1:nrow(train)){
+  if(train[i,9] %in% other_list){
+    train[i,9] <- "Other"
+  }
+}
+table(train$Title)
+
+
+view(train)
+#Now the dataset is ready for data analysis.
+
+
+
+
+
+###Exploratory Data Analysis###
+#View the distribution of all 5 categorical variables
+ggplot(train, aes(x=Survived)) + 
+  geom_bar()
+#More passengers died compared to surviving.
+ggplot(train, aes(x=Pclass)) + 
+  geom_bar()
+#Most passengers are in Pclass 3.
+ggplot(train, aes(x=Sex)) + 
+  geom_bar()
+#There are more Male than Female passengers.
+ggplot(train, aes(x=Embarked)) + 
+  geom_bar()
+#Majority of passengers embarked from S.
+ggplot(train, aes(x=Title)) + 
+  geom_bar()
+#Most passengers has the Title Mr. 
+
+#View the distribution of all 4 numerical variables
+ggplot(train, aes(x=Age)) + 
+  geom_histogram()
+#Most passengers are between 20-40 years old. 
+ggplot(train, aes(x=SibSp)) + 
+  geom_bar()
+#Majority of passengers have no Sibilings or Spouses.
+ggplot(train, aes(x=Parch)) + 
+  geom_bar()
+#Majority of passengers have no Parents or Children.
+ggplot(train, aes(x=Fare)) + 
+  geom_histogram()
+#Most Fares were under $50.
