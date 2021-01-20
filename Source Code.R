@@ -1,8 +1,8 @@
 ###Import datasets###
 library(tidyverse)
 
-train <- read_csv("Titanic Train.csv")
-test <- read_csv("Titanic Test.csv")
+train <- read_csv("Train Dataset.csv")
+test <- read_csv("Test Dataset.csv")
 df_combine <- rbind(train[-2],test)
 
 view(train)
